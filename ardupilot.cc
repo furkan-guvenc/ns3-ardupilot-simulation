@@ -64,14 +64,6 @@ void ReceivePacketUdp (Ptr<Socket> socket)
 }
 
 
-void HandleAcceptTcp (Ptr<Socket> socket, const Address& from)
-{
-    NS_LOG_FUNCTION (from);
-    socket->SetRecvCallback (MakeCallback (&ReceivePacketUdp));
-}
-
-
-
 int 
 main (int argc, char *argv[])
 {
@@ -79,7 +71,6 @@ main (int argc, char *argv[])
     //  Packet::EnableChecking ();
     std::string mode = "UseBridge";
     int port = 5760;
-    bool isUdp = false;
     std::string tapName ="tap-test1";
     //  uint32_t packetSize = 1000; // bytes
     // uint32_t numPackets = 1;
@@ -88,12 +79,11 @@ main (int argc, char *argv[])
 
     CommandLine cmd;
     cmd.AddValue ("port",  "port",port);
-    cmd.AddValue ("udp", "use udp instead of default tcp",isUdp);
     cmd.AddValue ("mode", "Mode setting of TapBridge", mode);
     cmd.AddValue ("tapName", "Name of the OS tap device", tapName);
     cmd.Parse (argc, argv);
 
-    std::cout << "Listening "<< (isUdp ? "UDP:" : "TCP:") << std::to_string(port) << std::endl;
+    std::cout << "Listening UDP:" << std::to_string(port) << std::endl;
 
     GlobalValue::Bind ("SimulatorImplementationType", StringValue ("ns3::RealtimeSimulatorImpl"));
     GlobalValue::Bind ("ChecksumEnabled", BooleanValue (true));
@@ -136,23 +126,11 @@ main (int argc, char *argv[])
 
     // Receive some data at ns-3 node
 
-    std::string socketFactory = isUdp ? "ns3::UdpSocketFactory" : "ns3::TcpSocketFactory";
-    TypeId tid = TypeId::LookupByName (socketFactory);
+    TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
     Ptr<Socket> recvSink = Socket::CreateSocket (nodesLeft.Get (1), tid);
     InetSocketAddress local = InetSocketAddress (Ipv4Address::GetAny (),port);
     recvSink->Bind (local);
     recvSink->SetRecvCallback (MakeCallback (&ReceivePacketUdp));
-
-    if(!isUdp) {
-        recvSink->Listen();
-
-        // AcceptCallback
-        recvSink->SetAcceptCallback (
-                MakeNullCallback<bool, Ptr<Socket>, const Address &> (),
-                MakeCallback (&HandleAcceptTcp)
-        );
-    }
-
 
     Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
@@ -168,6 +146,3 @@ main (int argc, char *argv[])
     Simulator::Run ();
     Simulator::Destroy ();
 }
-
-
-// https://github.com/libremente/NS3-simulation/blob/master/WIFI_TCP_simulation.cc
