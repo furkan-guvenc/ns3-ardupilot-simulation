@@ -40,26 +40,60 @@
 //#include "../../src/netanim/model/animation-interface.h"
 //#include "../../src/core/model/simulator.h"
 
+#include "c_library_v2/standard/mavlink.h"
+#define BUFFER_LENGTH 2041
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("Ardupilot");
 
 Time                    m_startTime;
 
+mavlink_status_t status;
+mavlink_message_t msg;
+int chan = MAVLINK_COMM_0;
+
+mavlink_global_position_int_t global_position;
+uint8_t visible_satellites;
+
 void ReceivePacketUdp (Ptr<Socket> socket)
 {
-
-    NS_LOG_UNCOND ("Received one packet!");
-
-    Ptr<Packet> packet = socket->Recv (1472,0);
-    std::cout<<"Packet Size:"<<packet->GetSize()<<std::endl;
+    Ptr<Packet> packet = socket->Recv (BUFFER_LENGTH,0);
+    const size_t packet_len = packet->GetSize ();
     //  packet->Print (std::cout);
     //  std::cout << std::endl;
-    uint8_t *buffer = new uint8_t[packet->GetSize ()-1];
-    packet->CopyData(buffer, packet->GetSize ());
+    auto *buffer = new uint8_t[packet_len];
+    packet->CopyData(buffer, packet_len);
 
-    std::string s = std::string((char*)buffer);
-    std::cout<<"Data Received:"<<s<<std::endl;
+
+    for (size_t i = 0; i < packet_len; ++i) {
+        uint8_t byte = buffer[i];
+        if (mavlink_parse_char(chan, byte, &msg, &status))
+        {
+//            std::cout<<"Received message with ID "<<msg.msgid<<", sequence: "<<msg.seq<<" from component "<<msg.compid<<" of system "<<msg.sysid<<std::endl;
+
+            switch(msg.msgid) {
+                case MAVLINK_MSG_ID_GLOBAL_POSITION_INT: // ID for GLOBAL_POSITION_INT 33
+                {
+                    // Get all fields in payload (into global_position)
+                    mavlink_msg_global_position_int_decode(&msg, &global_position);
+                    // Print all fields
+                    std::cout<<"Position: "<<global_position.lat<<", "<<global_position.lon<<", "<<global_position.alt<<std::endl;
+                }
+                    break;
+                case MAVLINK_MSG_ID_GPS_STATUS: // 25
+                {
+                    // Get just one field from payload
+                    visible_satellites = mavlink_msg_gps_status_get_satellites_visible(&msg);
+                    std::cout<<"Visible satellites: "<<visible_satellites<<std::endl;
+                }
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    delete[] buffer;
 
 }
 
