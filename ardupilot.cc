@@ -56,6 +56,14 @@ int chan = MAVLINK_COMM_0;
 mavlink_global_position_int_t global_position;
 uint8_t visible_satellites;
 
+// 41.15242,-8.64096,72
+Vector3D base_coordinates = GeographicPositions::GeographicToCartesianCoordinates(
+        41.15242,
+        -8.64096,
+        72,
+        GeographicPositions::EarthSpheroidType::WGS84
+        );
+
 void ReceivePacketUdp (Ptr<Socket> socket)
 {
     Ptr<Packet> packet = socket->Recv (BUFFER_LENGTH,0);
@@ -79,6 +87,15 @@ void ReceivePacketUdp (Ptr<Socket> socket)
                     mavlink_msg_global_position_int_decode(&msg, &global_position);
                     // Print all fields
                     std::cout<<"Position: "<<global_position.lat<<", "<<global_position.lon<<", "<<global_position.alt<<std::endl;
+                    Vector3D coordinates = GeographicPositions::GeographicToCartesianCoordinates(
+                            (double) global_position.lat / 10000000,
+                            (double) global_position.lon / 10000000,
+                            (double) global_position.alt / 1000,
+                            GeographicPositions::EarthSpheroidType::WGS84
+                    );
+                    std::cout<<"Diff: "<< coordinates - base_coordinates <<std::endl;
+                    std::cout<<"Distance: "<< CalculateDistance(coordinates, base_coordinates) <<std::endl;
+
                 }
                     break;
                 case MAVLINK_MSG_ID_GPS_STATUS: // 25
