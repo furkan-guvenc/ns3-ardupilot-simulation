@@ -40,79 +40,11 @@
 //#include "../../src/netanim/model/animation-interface.h"
 //#include "../../src/core/model/simulator.h"
 
-#include "c_library_v2/standard/mavlink.h"
-#define BUFFER_LENGTH 2041
+#include "./external-mobility-model.h"
 
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("Ardupilot");
-
-Time                    m_startTime;
-
-mavlink_status_t status;
-mavlink_message_t msg;
-int chan = MAVLINK_COMM_0;
-
-mavlink_global_position_int_t global_position;
-uint8_t visible_satellites;
-
-// 41.15242,-8.64096,72
-Vector3D base_coordinates = GeographicPositions::GeographicToCartesianCoordinates(
-        41.15242,
-        -8.64096,
-        72,
-        GeographicPositions::EarthSpheroidType::WGS84
-        );
-
-void ReceivePacketUdp (Ptr<Socket> socket)
-{
-    Ptr<Packet> packet = socket->Recv (BUFFER_LENGTH,0);
-    const size_t packet_len = packet->GetSize ();
-    //  packet->Print (std::cout);
-    //  std::cout << std::endl;
-    auto *buffer = new uint8_t[packet_len];
-    packet->CopyData(buffer, packet_len);
-
-
-    for (size_t i = 0; i < packet_len; ++i) {
-        uint8_t byte = buffer[i];
-        if (mavlink_parse_char(chan, byte, &msg, &status))
-        {
-//            std::cout<<"Received message with ID "<<msg.msgid<<", sequence: "<<msg.seq<<" from component "<<msg.compid<<" of system "<<msg.sysid<<std::endl;
-
-            switch(msg.msgid) {
-                case MAVLINK_MSG_ID_GLOBAL_POSITION_INT: // ID for GLOBAL_POSITION_INT 33
-                {
-                    // Get all fields in payload (into global_position)
-                    mavlink_msg_global_position_int_decode(&msg, &global_position);
-                    // Print all fields
-                    std::cout<<"Position: "<<global_position.lat<<", "<<global_position.lon<<", "<<global_position.alt<<std::endl;
-                    Vector3D coordinates = GeographicPositions::GeographicToCartesianCoordinates(
-                            (double) global_position.lat / 10000000,
-                            (double) global_position.lon / 10000000,
-                            (double) global_position.alt / 1000,
-                            GeographicPositions::EarthSpheroidType::WGS84
-                    );
-                    std::cout<<"Diff: "<< coordinates - base_coordinates <<std::endl;
-                    std::cout<<"Distance: "<< CalculateDistance(coordinates, base_coordinates) <<std::endl;
-
-                }
-                    break;
-                case MAVLINK_MSG_ID_GPS_STATUS: // 25
-                {
-                    // Get just one field from payload
-                    visible_satellites = mavlink_msg_gps_status_get_satellites_visible(&msg);
-                    std::cout<<"Visible satellites: "<<visible_satellites<<std::endl;
-                }
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
-    delete[] buffer;
-
-}
 
 
 int 
@@ -121,7 +53,8 @@ main (int argc, char *argv[])
     Packet::EnablePrinting ();
     //  Packet::EnableChecking ();
     std::string mode = "UseBridge";
-    int port = 5760;
+    uint32_t basePort = 5760;
+    uint32_t nodeNumber = 1;
     std::string tapName ="tap-test1";
     //  uint32_t packetSize = 1000; // bytes
     // uint32_t numPackets = 1;
@@ -129,21 +62,22 @@ main (int argc, char *argv[])
 
 
     CommandLine cmd;
-    cmd.AddValue ("port",  "port",port);
+    cmd.AddValue ("port",  "Base port to listen",basePort);
+    cmd.AddValue ("number",  "UAV number to run",nodeNumber);
     cmd.AddValue ("mode", "Mode setting of TapBridge", mode);
     cmd.AddValue ("tapName", "Name of the OS tap device", tapName);
     cmd.Parse (argc, argv);
 
-    std::cout << "Listening UDP:" << std::to_string(port) << std::endl;
+    std::cout << "Creating " << nodeNumber <<" nodes to listen with UDP from 10.1.1.0:" << basePort << std::endl;
 
     GlobalValue::Bind ("SimulatorImplementationType", StringValue ("ns3::RealtimeSimulatorImpl"));
     GlobalValue::Bind ("ChecksumEnabled", BooleanValue (true));
 
     //
-    // The topology has a csma network of two nodes on the left side.
+    // The topology has a csma network.
     //
     NodeContainer nodesLeft;
-    nodesLeft.Create (2);
+    nodesLeft.Create (nodeNumber + 1);
 
     CsmaHelper csmaSN0;
     csmaSN0.SetChannelAttribute ("DataRate", StringValue ("100Mbps"));
@@ -151,15 +85,9 @@ main (int argc, char *argv[])
     NetDeviceContainer devicesLeft = csmaSN0.Install (nodesLeft);
 
 
-
-    MobilityHelper mobilityL;
-    mobilityL.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
-    mobilityL.Install(nodesLeft);
-    nodesLeft.Get(1)->GetObject<MobilityModel>()
-    ->SetPosition(Vector(200.0, 200.0, 0.0));
-
-    nodesLeft.Get(0)->GetObject<MobilityModel>()
-    ->SetPosition(Vector(100.0, 200.0, 0.0));
+    MobilityHelper constantMobility, externalMobility;
+    constantMobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+    constantMobility.Install(nodesLeft.Get(0));
 
 
     InternetStackHelper internetLeft;
@@ -176,12 +104,19 @@ main (int argc, char *argv[])
 
 
     // Receive some data at ns-3 node
-
+    externalMobility.SetMobilityModel ("ns3::ExternalMobilityModel");
     TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
-    Ptr<Socket> recvSink = Socket::CreateSocket (nodesLeft.Get (1), tid);
-    InetSocketAddress local = InetSocketAddress (Ipv4Address::GetAny (),port);
-    recvSink->Bind (local);
-    recvSink->SetRecvCallback (MakeCallback (&ReceivePacketUdp));
+
+    for (uint32_t i = 0; i < nodeNumber; ++i) {
+        Ptr<Node> node = nodesLeft.Get(i + 1);
+        externalMobility.Install(node);
+
+        Ptr<Socket> recvSink = Socket::CreateSocket (node, tid);
+        node->GetObject<ExternalMobilityModel>()->StartListen(recvSink, basePort + i);
+        Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
+        Ipv4InterfaceAddress iaddr = ipv4->GetAddress (1,0);
+        std::cout<< "Node "<< i << " is listening on " << iaddr.GetLocal () << ":" << basePort + i << std::endl;
+    }
 
     Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
@@ -192,7 +127,6 @@ main (int argc, char *argv[])
     Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> ("dynamic-global-routing.routes", std::ios::out);
     g.PrintRoutingTableAllAt (Seconds (12), routingStream);
 
-    m_startTime = Simulator::Now();
     Simulator::Stop (Seconds (600.));
     Simulator::Run ();
     Simulator::Destroy ();
