@@ -122,6 +122,7 @@ main (int argc, char *argv[])
     //  Packet::EnableChecking ();
     std::string mode = "UseBridge";
     int port = 5760;
+    int simulation_time = 20;
     std::string tapName ="tap-test1";
     //  uint32_t packetSize = 1000; // bytes
     // uint32_t numPackets = 1;
@@ -132,6 +133,7 @@ main (int argc, char *argv[])
     cmd.AddValue ("port",  "port",port);
     cmd.AddValue ("mode", "Mode setting of TapBridge", mode);
     cmd.AddValue ("tapName", "Name of the OS tap device", tapName);
+    cmd.AddValue("time", "Simulation time", simulation_time);
     cmd.Parse (argc, argv);
 
     std::cout << "Listening UDP:" << std::to_string(port) << std::endl;
@@ -193,7 +195,7 @@ main (int argc, char *argv[])
     g.PrintRoutingTableAllAt (Seconds (12), routingStream);
 
     m_startTime = Simulator::Now();
-    Simulator::Stop (Seconds (600.));
+    Simulator::Stop (Seconds (simulation_time));
     Simulator::Run ();
     Simulator::Destroy ();
 }
