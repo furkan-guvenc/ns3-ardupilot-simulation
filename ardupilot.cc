@@ -55,6 +55,7 @@ main (int argc, char *argv[])
     std::string mode = "UseBridge";
     uint32_t basePort = 5760;
     uint32_t nodeNumber = 1;
+    int simulation_time = 20;
     std::string tapName ="tap-test1";
     //  uint32_t packetSize = 1000; // bytes
     // uint32_t numPackets = 1;
@@ -66,6 +67,7 @@ main (int argc, char *argv[])
     cmd.AddValue ("number",  "UAV number to run",nodeNumber);
     cmd.AddValue ("mode", "Mode setting of TapBridge", mode);
     cmd.AddValue ("tapName", "Name of the OS tap device", tapName);
+    cmd.AddValue ("time", "Simulation time", simulation_time);
     cmd.Parse (argc, argv);
 
     std::cout << "Creating " << nodeNumber <<" nodes to listen with UDP from 10.1.1.0:" << basePort << std::endl;
@@ -127,7 +129,7 @@ main (int argc, char *argv[])
     Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> ("dynamic-global-routing.routes", std::ios::out);
     g.PrintRoutingTableAllAt (Seconds (12), routingStream);
 
-    Simulator::Stop (Seconds (600.));
+    Simulator::Stop (Seconds (simulation_time));
     Simulator::Run ();
     Simulator::Destroy ();
 }
