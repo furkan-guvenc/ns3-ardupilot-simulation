@@ -47,7 +47,7 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE ("Ardupilot");
 
 
-int 
+int
 main (int argc, char *argv[])
 {
     Packet::EnablePrinting ();
@@ -78,31 +78,38 @@ main (int argc, char *argv[])
     //
     // The topology has a csma network.
     //
-    NodeContainer nodesLeft;
-    nodesLeft.Create (nodeNumber + 1);
+    NodeContainer wifiStaNodes;
+    wifiStaNodes.Create (nodeNumber);
+
+    NodeContainer wifiApNode;
+    wifiApNode.Create (1);
+
+    NodeContainer allNodes = NodeContainer (wifiApNode, wifiStaNodes);
 
     CsmaHelper csmaSN0;
     csmaSN0.SetChannelAttribute ("DataRate", StringValue ("100Mbps"));
     csmaSN0.SetChannelAttribute ("Delay", TimeValue (NanoSeconds (6560)));
-    NetDeviceContainer devicesLeft = csmaSN0.Install (nodesLeft);
+    csmaSN0.Install (wifiApNode);
+    NetDeviceContainer allDevices = csmaSN0.Install (allNodes);
 
 
     MobilityHelper constantMobility, externalMobility;
     constantMobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
-    constantMobility.Install(nodesLeft.Get(0));
+    constantMobility.Install(wifiApNode);
 
 
-    InternetStackHelper internetLeft;
-    internetLeft.Install (nodesLeft);
+    InternetStackHelper stack;
+    stack.Install (wifiStaNodes);
+    stack.Install (wifiApNode);
 
-    Ipv4AddressHelper ipv4Left;
-    ipv4Left.SetBase ("10.1.1.0", "255.255.255.0");
-    Ipv4InterfaceContainer interfacesLeft = ipv4Left.Assign (devicesLeft);
+    Ipv4AddressHelper address;
+    address.SetBase ("10.1.1.0", "255.255.255.0");
+    Ipv4InterfaceContainer interfaces = address.Assign (allDevices);
 
-    TapBridgeHelper tapBridge (interfacesLeft.GetAddress (0));
+    TapBridgeHelper tapBridge (interfaces.GetAddress (0));
     tapBridge.SetAttribute ("Mode", StringValue (mode));
     tapBridge.SetAttribute ("DeviceName", StringValue (tapName));
-    tapBridge.Install (nodesLeft.Get (0), devicesLeft.Get (0));
+    tapBridge.Install (wifiApNode.Get (0), allDevices.Get (0));
 
 
     // Receive some data at ns-3 node
@@ -110,7 +117,7 @@ main (int argc, char *argv[])
     TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
 
     for (uint32_t i = 0; i < nodeNumber; ++i) {
-        Ptr<Node> node = nodesLeft.Get(i + 1);
+        Ptr<Node> node = wifiStaNodes.Get(i);
         externalMobility.Install(node);
 
         Ptr<Socket> recvSink = Socket::CreateSocket (node, tid);
@@ -123,7 +130,7 @@ main (int argc, char *argv[])
     Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
 
-    AnimationInterface anim("tap-wifi-dumbbell-modified.xml");
+    AnimationInterface anim("ardupilot.xml");
     // Trace routing tables
     Ipv4GlobalRoutingHelper g;
     Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> ("dynamic-global-routing.routes", std::ios::out);

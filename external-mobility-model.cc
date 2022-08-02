@@ -38,8 +38,6 @@ Vector3D base_coordinates = GeographicPositions::GeographicToCartesianCoordinate
 );
 
 
-void ReceivePacketUdp (Ptr<Socket> socket);
-
 NS_OBJECT_ENSURE_REGISTERED (ExternalMobilityModel);
 
 TypeId ExternalMobilityModel::GetTypeId (void)
@@ -118,8 +116,9 @@ void ExternalMobilityModel::ReceivePacketUdp (Ptr<Socket> socket)
                             (double) this->mavlinkGlobalPosition.alt / 1000,
                             GeographicPositions::EarthSpheroidType::WGS84
                     );
-                    std::cout<<"Diff: "<< coordinates - base_coordinates <<std::endl;
+                    Vector3D position = coordinates - base_coordinates;
                     std::cout<<"Distance: "<< CalculateDistance(coordinates, base_coordinates) <<std::endl;
+                    this->DoSetPosition(position);
 
                 }
                     break;
