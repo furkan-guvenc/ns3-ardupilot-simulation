@@ -7,38 +7,12 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/wifi-module.h"
 #include "ns3/internet-module.h"
-#include "ns3/csma-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/tap-bridge-module.h"
 #include "ns3/internet-apps-module.h"
 #include "ns3/netanim-module.h"
 #include <ns3/packet.h>
-
-//#include "../../src/network/model/socket.h"
-//#include "../../src/core/model/log-macros-enabled.h"
-//#include "../../src/network/model/packet.h"
-//#include "../../src/core/model/ptr.h"
-//#include "../../src/core/model/command-line.h"
-//#include "../../src/core/model/global-value.h"
-//#include "../../src/core/model/string.h"
-//#include "../../src/core/model/boolean.h"
-//#include "../../src/network/helper/node-container.h"
-//#include "../../src/csma/helper/csma-helper.h"
-//#include "../../src/mobility/helper/mobility-helper.h"
-//#include "../../src/network/helper/net-device-container.h"
-//#include "../../src/mobility/model/mobility-model.h"
-//#include "../../src/core/model/vector.h"
-//#include "../../src/internet/helper/internet-stack-helper.h"
-//#include "../../src/internet/helper/ipv4-address-helper.h"
-//#include "../../src/internet/helper/ipv4-interface-container.h"
-//#include "../../src/tap-bridge/helper/tap-bridge-helper.h"
-//#include "../../src/network/utils/inet-socket-address.h"
-//#include "../../src/network/utils/ipv4-address.h"
-//#include "../../src/network/utils/output-stream-wrapper.h"
-//#include "../../src/internet/helper/ipv4-global-routing-helper.h"
-//#include "../../src/netanim/model/animation-interface.h"
-//#include "../../src/core/model/simulator.h"
 
 #include "./external-mobility-model.h"
 
@@ -52,7 +26,7 @@ main (int argc, char *argv[])
 {
     Packet::EnablePrinting ();
     //  Packet::EnableChecking ();
-    std::string mode = "UseBridge";
+    std::string mode = "ConfigureLocal";
     uint32_t basePort = 5760;
     uint32_t nodeNumber = 1;
     int simulation_time = 20;
@@ -76,7 +50,7 @@ main (int argc, char *argv[])
     GlobalValue::Bind ("ChecksumEnabled", BooleanValue (true));
 
     //
-    // The topology has a csma network.
+    // The topology has a wifi network.
     //
     NodeContainer wifiStaNodes;
     wifiStaNodes.Create (nodeNumber);
@@ -84,13 +58,27 @@ main (int argc, char *argv[])
     NodeContainer wifiApNode;
     wifiApNode.Create (1);
 
-    NodeContainer allNodes = NodeContainer (wifiApNode, wifiStaNodes);
+    YansWifiPhyHelper wifiPhy;
+    YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
+    wifiPhy.SetChannel (wifiChannel.Create ());
 
-    CsmaHelper csmaSN0;
-    csmaSN0.SetChannelAttribute ("DataRate", StringValue ("100Mbps"));
-    csmaSN0.SetChannelAttribute ("Delay", TimeValue (NanoSeconds (6560)));
-    csmaSN0.Install (wifiApNode);
-    NetDeviceContainer allDevices = csmaSN0.Install (allNodes);
+    Ssid ssid = Ssid ("ns-3-ssid");
+    WifiHelper wifi;
+    WifiMacHelper wifiMac;
+    wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager");
+
+    NetDeviceContainer apDevices;
+    wifiMac.SetType ("ns3::ApWifiMac",
+                 "Ssid", SsidValue (ssid));
+    apDevices = wifi.Install (wifiPhy, wifiMac, wifiApNode);
+
+    NetDeviceContainer staDevices;
+    wifiMac.SetType ("ns3::StaWifiMac",
+                 "Ssid", SsidValue (ssid),
+                 "ActiveProbing", BooleanValue (false));
+    staDevices = wifi.Install (wifiPhy, wifiMac, wifiStaNodes);
+
+    NetDeviceContainer allDevices = NetDeviceContainer (apDevices, staDevices);
 
 
     MobilityHelper constantMobility, externalMobility;
