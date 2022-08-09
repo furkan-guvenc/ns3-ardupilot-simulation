@@ -15,6 +15,7 @@
 #include <ns3/packet.h>
 
 #include "./external-mobility-model.h"
+#include "./signal_power.h"
 
 using namespace ns3;
 
@@ -123,6 +124,19 @@ main (int argc, char *argv[])
     Ipv4GlobalRoutingHelper g;
     Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> ("dynamic-global-routing.routes", std::ios::out);
     g.PrintRoutingTableAllAt (Seconds (12), routingStream);
+
+    std::vector<SignalPower> deviceSignalPowers;
+    deviceSignalPowers.reserve(nodeNumber);
+
+    for (uint32_t i = 0; i < staDevices.GetN(); ++i) {
+        SignalPower signalPower;
+        signalPower.id = i;
+        deviceSignalPowers.push_back(signalPower);
+
+        Ptr<WifiPhy> phy = staDevices.Get(i)->GetObject<WifiNetDevice>()->GetPhy();
+        phy->TraceConnectWithoutContext("MonitorSnifferRx", MakeCallback (&SignalPower::MonitorSniffRx, &deviceSignalPowers[i]) );
+        Simulator::Schedule(Seconds(1), &SignalPower::PrintSignal,&deviceSignalPowers[i]);
+    }
 
     Simulator::Stop (Seconds (simulation_time));
     Simulator::Run ();
