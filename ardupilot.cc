@@ -25,17 +25,18 @@ int
 main (int argc, char *argv[])
 {
     Packet::EnablePrinting ();
-    //  Packet::EnableChecking ();
+
     std::string mode = "ConfigureLocal";
     uint32_t basePort = 5760;
     uint32_t nodeNumber = 1;
     int simulationTime = 20;
     std::string tapName ="tap-test1";
-    std::string csvFileName ="";
-    //  uint32_t packetSize = 1000; // bytes
-    // uint32_t numPackets = 1;
-    // double interval = 1.0; // seconds
+    std::string csvFileName;
 
+    // Start location
+    double lat = 41.1028715;
+    double lng = 29.0240369;
+    double alt = 16.87;
 
     CommandLine cmd;
     cmd.AddValue ("port",  "Base port to listen",basePort);
@@ -44,6 +45,12 @@ main (int argc, char *argv[])
     cmd.AddValue ("tapName", "Name of the OS tap device", tapName);
     cmd.AddValue ("time", "Simulation time", simulationTime);
     cmd.AddValue ("csv", "File name for csv export", csvFileName);
+
+    // Start location
+    cmd.AddValue ("lat", "Start Location Latitude", lat);
+    cmd.AddValue ("lng", "Start Location Longitude", lng);
+    cmd.AddValue ("alt", "Start Location Altitude", alt);
+
     cmd.Parse (argc, argv);
 
     std::cout << "Creating " << nodeNumber <<" nodes to listen with UDP from 10.1.1.0:" << basePort << std::endl;
@@ -103,7 +110,11 @@ main (int argc, char *argv[])
 
 
     // Receive some data at ns-3 node
-    externalMobility.SetMobilityModel ("ns3::ExternalMobilityModel");
+    externalMobility.SetMobilityModel ("ns3::ExternalMobilityModel",
+                                       "Latitude", DoubleValue (lat),
+                                       "Longitude", DoubleValue (lng),
+                                       "Altitude", DoubleValue (alt)
+                                       );
     TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
 
     for (uint32_t i = 0; i < nodeNumber; ++i) {

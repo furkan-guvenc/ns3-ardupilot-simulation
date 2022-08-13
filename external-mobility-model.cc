@@ -29,13 +29,6 @@
 
 namespace ns3 {
 
-// 41.15242,-8.64096,72
-Vector3D base_coordinates = GeographicPositions::GeographicToCartesianCoordinates(
-        41.15242,
-        -8.64096,
-        72,
-        GeographicPositions::EarthSpheroidType::WGS84
-);
 
 
 NS_OBJECT_ENSURE_REGISTERED (ExternalMobilityModel);
@@ -45,7 +38,19 @@ TypeId ExternalMobilityModel::GetTypeId (void)
     static TypeId tid = TypeId ("ns3::ExternalMobilityModel")
             .SetParent<MobilityModel> ()
             .SetGroupName ("Mobility")
-            .AddConstructor<ExternalMobilityModel> ();
+            .AddConstructor<ExternalMobilityModel> ()
+            .AddAttribute ("Latitude", "Start Location Latitude",
+                           DoubleValue (0.0),
+                           MakeDoubleAccessor (&ExternalMobilityModel::baseLat),
+                           MakeDoubleChecker<double> ())
+            .AddAttribute ("Longitude", "Start Location Longitude",
+                           DoubleValue (0.0),
+                           MakeDoubleAccessor (&ExternalMobilityModel::baseLng),
+                           MakeDoubleChecker<double> ())
+            .AddAttribute ("Altitude", "Start Location Altitude",
+                           DoubleValue (0.0),
+                           MakeDoubleAccessor (&ExternalMobilityModel::baseAlt),
+                           MakeDoubleChecker<double> ());
     return tid;
 }
 
@@ -63,6 +68,13 @@ ExternalMobilityModel::~ExternalMobilityModel ()
 void
 ExternalMobilityModel::StartListen (Ptr<Socket> socket, uint32_t port)
 {
+    base_coordinates = GeographicPositions::GeographicToCartesianCoordinates(
+            baseLat,
+            baseLng,
+            baseAlt,
+            GeographicPositions::EarthSpheroidType::WGS84
+    );
+
     InetSocketAddress local = InetSocketAddress (Ipv4Address::GetAny (),port);
     socket->Bind (local);
     socket->SetRecvCallback (MakeCallback (&ExternalMobilityModel::ReceivePacketUdp, this));

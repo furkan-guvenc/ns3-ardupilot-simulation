@@ -72,6 +72,11 @@ private:
   mavlink_message_t mavlinkMessage;
   mavlink_global_position_int_t mavlinkGlobalPosition;
 
+    double baseLat;        //!< the uav start latitude
+    double baseLng;        //!< the uav start longitude
+    double baseAlt;        //!< the uav start altitude
+    Vector3D base_coordinates; //!< the uav start cartesian coordinates
+
 };
 
 } // namespace ns3
