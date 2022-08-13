@@ -12,7 +12,7 @@
 #include <ns3/packet.h>
 
 namespace ns3 {
-    struct SignalPower {
+    class SignalPower {
         unsigned int id = 0;
 
         double signalDbm = 0;
@@ -20,6 +20,11 @@ namespace ns3 {
         double noiseDbm = 0;
         double noiseDbmAvg = 0;
         unsigned int samples = 0;
+
+        void StreamSignalAsCsvRow(Ptr<OutputStreamWrapper>) ;
+
+    public:
+        SignalPower(unsigned int id);
 
         void MonitorSniffRx (Ptr<const Packet> packet,
                              uint16_t channelFreqMhz,
@@ -29,7 +34,8 @@ namespace ns3 {
                              uint16_t staId);
 
 
-        void PrintSignal() const ;
+        void StreamSignal(Ptr<OutputStreamWrapper>) ;
+        void StreamSignalAsCsv(Ptr<OutputStreamWrapper>) ;
     };
 }
 

@@ -109,7 +109,6 @@ void ExternalMobilityModel::ReceivePacketUdp (Ptr<Socket> socket)
                     // Get all fields in payload (into global_position)
                     mavlink_msg_global_position_int_decode(&this->mavlinkMessage, &this->mavlinkGlobalPosition);
                     // Print all fields
-                    std::cout<< "Node "<< this->m_id <<" Position: "<<this->mavlinkGlobalPosition.lat<<", "<<this->mavlinkGlobalPosition.lon<<", "<<this->mavlinkGlobalPosition.alt<<std::endl;
                     Vector3D coordinates = GeographicPositions::GeographicToCartesianCoordinates(
                             (double) this->mavlinkGlobalPosition.lat / 10000000,
                             (double) this->mavlinkGlobalPosition.lon / 10000000,
@@ -117,7 +116,11 @@ void ExternalMobilityModel::ReceivePacketUdp (Ptr<Socket> socket)
                             GeographicPositions::EarthSpheroidType::WGS84
                     );
                     Vector3D position = coordinates - base_coordinates;
-                    std::cout<<"Distance: "<< CalculateDistance(coordinates, base_coordinates) <<std::endl;
+                    // Prevent connection loss for some time
+                    position.x /= 10.0;
+                    position.y /= 10.0;
+                    position.z /= 10.0;
+                    std::cout << " Node "<< this->m_id << ": Position "<< position << " Distance: "<< CalculateDistance(coordinates, base_coordinates) <<std::endl;
                     this->DoSetPosition(position);
 
                 }

@@ -8,7 +8,6 @@
 #include "ns3/wifi-module.h"
 #include "ns3/internet-module.h"
 #include "ns3/applications-module.h"
-#include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/tap-bridge-module.h"
 #include "ns3/internet-apps-module.h"
 #include "ns3/netanim-module.h"
@@ -30,8 +29,9 @@ main (int argc, char *argv[])
     std::string mode = "ConfigureLocal";
     uint32_t basePort = 5760;
     uint32_t nodeNumber = 1;
-    int simulation_time = 20;
+    int simulationTime = 20;
     std::string tapName ="tap-test1";
+    std::string csvFileName ="";
     //  uint32_t packetSize = 1000; // bytes
     // uint32_t numPackets = 1;
     // double interval = 1.0; // seconds
@@ -42,7 +42,8 @@ main (int argc, char *argv[])
     cmd.AddValue ("number",  "UAV number to run",nodeNumber);
     cmd.AddValue ("mode", "Mode setting of TapBridge", mode);
     cmd.AddValue ("tapName", "Name of the OS tap device", tapName);
-    cmd.AddValue ("time", "Simulation time", simulation_time);
+    cmd.AddValue ("time", "Simulation time", simulationTime);
+    cmd.AddValue ("csv", "File name for csv export", csvFileName);
     cmd.Parse (argc, argv);
 
     std::cout << "Creating " << nodeNumber <<" nodes to listen with UDP from 10.1.1.0:" << basePort << std::endl;
@@ -116,29 +117,36 @@ main (int argc, char *argv[])
         std::cout<< "Node "<< i << " is listening on " << iaddr.GetLocal () << ":" << basePort + i << std::endl;
     }
 
-    Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+    Ptr<OutputStreamWrapper> stream;
+    if (csvFileName.empty()) {
+        std::cout << "No csv file name given, no csv export" << std::endl;
+        stream = Create<OutputStreamWrapper> (&std::cout);
+    } else {
+        std::cout << "Exporting csv to " << csvFileName << std::endl;
+        stream = Create<OutputStreamWrapper> (csvFileName.c_str(), std::ios::out);
+    }
 
 
     AnimationInterface anim("ardupilot.xml");
-    // Trace routing tables
-    Ipv4GlobalRoutingHelper g;
-    Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> ("dynamic-global-routing.routes", std::ios::out);
-    g.PrintRoutingTableAllAt (Seconds (12), routingStream);
 
     std::vector<SignalPower> deviceSignalPowers;
     deviceSignalPowers.reserve(nodeNumber);
 
     for (uint32_t i = 0; i < staDevices.GetN(); ++i) {
-        SignalPower signalPower;
-        signalPower.id = i;
-        deviceSignalPowers.push_back(signalPower);
+        deviceSignalPowers.push_back(SignalPower(i));
 
         Ptr<WifiPhy> phy = staDevices.Get(i)->GetObject<WifiNetDevice>()->GetPhy();
         phy->TraceConnectWithoutContext("MonitorSnifferRx", MakeCallback (&SignalPower::MonitorSniffRx, &deviceSignalPowers[i]) );
-        Simulator::Schedule(Seconds(1), &SignalPower::PrintSignal,&deviceSignalPowers[i]);
+        Simulator::ScheduleNow(
+                csvFileName.empty()
+                    ? &SignalPower::StreamSignal
+                    : &SignalPower::StreamSignalAsCsv,
+                &deviceSignalPowers[i],
+                stream
+        );
     }
 
-    Simulator::Stop (Seconds (simulation_time));
+    Simulator::Stop (Seconds (simulationTime));
     Simulator::Run ();
     Simulator::Destroy ();
 }
