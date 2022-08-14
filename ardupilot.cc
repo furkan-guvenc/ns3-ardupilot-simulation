@@ -32,6 +32,7 @@ main (int argc, char *argv[])
     int simulationTime = 20;
     std::string tapName ="tap-test1";
     std::string csvFileName;
+    std::string propagationLoss = "LogDistancePropagationLossModel";
 
     // Start location
     double lat = 41.1028715;
@@ -45,6 +46,7 @@ main (int argc, char *argv[])
     cmd.AddValue ("tapName", "Name of the OS tap device", tapName);
     cmd.AddValue ("time", "Simulation time", simulationTime);
     cmd.AddValue ("csv", "File name for csv export", csvFileName);
+    cmd.AddValue ("propagationLoss", "Propagation loss model", propagationLoss);
 
     // Start location
     cmd.AddValue ("lat", "Start Location Latitude", lat);
@@ -68,7 +70,9 @@ main (int argc, char *argv[])
     wifiApNode.Create (1);
 
     YansWifiPhyHelper wifiPhy;
-    YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
+    YansWifiChannelHelper wifiChannel;
+    wifiChannel.SetPropagationDelay ("ns3::ConstantSpeedPropagationDelayModel");
+    wifiChannel.AddPropagationLoss ("ns3::" + propagationLoss);
     wifiPhy.SetChannel (wifiChannel.Create ());
 
     Ssid ssid = Ssid ("ns-3-ssid");
