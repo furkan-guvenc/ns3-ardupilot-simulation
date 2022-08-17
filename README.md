@@ -19,4 +19,4 @@ CXXFLAGS="-W -Wall -g"  ./ns3 configure --build-profile=debug --enable-examples 
 ./ns3 run scratch/ardupilot/ardupilot
 ```
 
-After runing the application it will print which ips and ports being listened. To see any result, mavlink messages need to be sent to these targets. Ardupilot SITL can be used with [this repo](https://github.com/furkan-guvenc/ardupilot-sitl-docker-v2).
+After running the application it will print which ips and ports being listened. To see any result, mavlink messages need to be sent to these targets. Ardupilot SITL can be used with [this repo](https://github.com/furkan-guvenc/ardupilot-sitl-docker-v2).
